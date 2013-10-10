@@ -1,4 +1,12 @@
-Version 1.5 beta
+Version 1.5.2
+
+- Fixed a bug in the autoshrink logic when creating labels programatically (as opposed to using a nib)
+
+Version 1.5.1
+
+- Fixed rounding error that caused layout for multiline labels to not work correctly
+
+Version 1.5
 
 - Added innerShadowBlur property
 - Added characterSpacing property

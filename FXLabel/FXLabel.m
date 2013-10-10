@@ -1,7 +1,7 @@
 //
 //  FXLabel.m
 //
-//  Version 1.5 beta
+//  Version 1.5.2
 //
 //  Created by Nick Lockwood on 20/08/2011.
 //  Copyright 2011 Charcoal Design
@@ -62,19 +62,17 @@
              @"–", //en-dash
              @"—", //em-dash
              @";",
+             @":",
              nil] containsObject:self];
 }
 
 - (NSArray *)FXLabel_characters
 {
-    NSUInteger length = [self length];
-    NSMutableArray *characters = [NSMutableArray arrayWithCapacity:length];
-    for (NSUInteger i = 0; i < length; i++)
-    {
-        NSRange range = [self rangeOfComposedCharacterSequenceAtIndex:i];
-        [characters addObject:[self substringWithRange:range]];
-        i += range.length - 1;
-    }
+    NSMutableArray *characters = [NSMutableArray array];
+    [self enumerateSubstringsInRange:NSMakeRange(0, [self length]) options:NSStringEnumerationByComposedCharacterSequences usingBlock:^(NSString *substring, NSRange substringRange, NSRange enclosingRange, BOOL *stop) {
+        
+        [characters addObject:substring];
+    }];
     return characters;
 }
 
@@ -92,7 +90,7 @@
     {
         //split text into individual characters
         NSArray *characters = [self FXLabel_characters];
-        
+
         //calculate lines
         while (index < [characters count])
         {
@@ -104,7 +102,7 @@
                 NSString *line = [lines lastObject];
                 NSString *newLine = [line length]? line: @"";
                 newLine = [newLine stringByAppendingString:[remainingChars componentsJoinedByString:@""]];
-                [lines replaceObjectAtIndex:lineCount - 1 withObject:newLine];
+                lines[lineCount - 1] = newLine;
                 break;
             }
             NSString *line = nil;
@@ -151,17 +149,23 @@
     }
     else
     {
-        //split text into words
-        NSString *text = [self stringByReplacingOccurrencesOfString:@"\t" withString:@" "];
-        text = [text stringByReplacingOccurrencesOfString:@"\n" withString:@" \n "];
-        NSArray *words = [text componentsSeparatedByString:@" "];
-        words = [words filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"length > 0"]];
+        //TODO: handle hyphenation
         
+        //split text into words
+        NSMutableArray *words = [NSMutableArray array];
+        [self enumerateSubstringsInRange:NSMakeRange(0, [self length]) options:NSStringEnumerationByLines usingBlock:^(NSString *substring, NSRange substringRange, NSRange enclosingRange, BOOL *stop) {
+            
+            [words addObjectsFromArray:[substring componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]];
+            
+            [words addObject:@"\n"];
+        }];
+        [words removeLastObject];
+    
         //calculate lines
         while (index < [words count])
         {
             NSInteger lineCount = [lines count];
-            if (lineCount && ((lineCount + 1) * font.lineHeight + lineCount * font.pointSize * lineSpacing) > size.height)
+            if (lineCount && ((lineCount + 1) * font.lineHeight + lineCount * roundf(font.pointSize * lineSpacing)) > size.height)
             {
                 //append remaining text to last line
                 NSArray *remainingWords = [words subarrayWithRange:NSMakeRange(index, [words count] - index)];
@@ -170,7 +174,7 @@
                 newLine = [newLine stringByAppendingString:[remainingWords componentsJoinedByString:@" "]];
                 newLine = [newLine stringByReplacingOccurrencesOfString:@"\n " withString:@"\n"];
                 newLine = [newLine stringByReplacingOccurrencesOfString:@" \n" withString:@"\n"];
-                [lines replaceObjectAtIndex:lineCount - 1 withObject:newLine];
+                lines[lineCount - 1] = newLine;
                 break;
             }
             NSString *line = nil;
@@ -772,11 +776,11 @@
         
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_6_0
         
-        CGFloat minimumFontSize = self.minimumFontSize ?: self.font.pointSize;
+        CGFloat minimumFontSize = self.adjustsFontSizeToFitWidth? self.minimumFontSize: self.font.pointSize;
         
 #else
         
-        CGFloat minimumFontSize = self.minimumScaleFactor? self.minimumScaleFactor * self.font.pointSize: self.font.pointSize;
+        CGFloat minimumFontSize = self.adjustsFontSizeToFitWidth? self.minimumScaleFactor * self.font.pointSize: self.font.pointSize;
         
 #endif
         size = [self.text sizeWithFont:self.font
